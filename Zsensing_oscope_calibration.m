@@ -11,13 +11,15 @@
 % pulse.current = 100e-6; % [A]
 
 filename = 'D:\Trevor\My Documents\MED lab\Cochlear R01\Impedance Sensing\Experiments\2019-10-29\C4_z_mux_500us00000_trimmed.csv';
-pulse.length  = 500e-6; % [s]
-pulse.current = 100e-6; % [A]
+% filename = 'D:\Trevor\My Documents\MED lab\Cochlear R01\Impedance Sensing\Experiments\2019-10-31\z_mux_100us.csv';
 
-%% import and preprocess waveform captured by scope
+pulse.length  = 100e-6; % [s]
+pulse.current = 100e-6; % [A]
 
 % import
 waveform = importLecroyWaveform(filename);
+
+%% Preprocess waveform captured by scope
 
 % smooth
 smooth_span = 750; % [pts]
@@ -167,7 +169,7 @@ xlabel('Time [ms]')
 ylabel('Voltage [V]')
 
 %%
-figure(7); clf(7); hold on
+figure(12); clf(12); hold on
 plot(pulse.t*1e3, pulse.z/1e3, 'k', 'LineWidth',1.3)
 % plot(pulse.t*1e3, Zo_cal/1e3, '--b', 'LineWidth', 1.2)
 

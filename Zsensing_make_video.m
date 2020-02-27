@@ -5,11 +5,11 @@ directory_name = 'D:\Trevor\My Documents\MED lab\Cochlear R01\Impedance Sensing\
 % load(fullfile(directory_name, 'Zsense_2020-01-24_phantom_Flex24_5x20_EA-1-5_trial4.mat'));
 % Z_raw = Z_trial4;
 
-load(fullfile(directory_name, 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial7.mat'));
-Z_raw = Z_trial7(1500:5500, :); % approximate range of trimmed video
+% load(fullfile(directory_name, 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial7.mat'));
+% Z_raw = Z_trial7(1500:5500, :); % approximate range of trimmed video
 
-% load(fullfile(directory_name, 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6.mat'));
-% Z_raw = Z_trial6(1400:end, :); % approximate range of trimmed video
+load(fullfile(directory_name, 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6.mat'));
+Z_raw = Z_trial6(1400:end, :); % approximate range of trimmed video
 
 n_channels = size(Z_raw,2);
 colors = distinguishable_colors(n_channels);
@@ -35,14 +35,18 @@ Z = Z_raw;
 
 % filename_video     = 'Zsense_2020-01-24_phantom_Flex24_5x20_EA-1-5_trial4_crop-overlay'; % video with tracked overlays
 % filename_video_raw = 'Zsense_2020-01-24_phantom_Flex24_5x20_EA-1-5_trial4_crop';         % same as ^ but without overlays
-filename_video     = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial7_crop-overlay2'; % video with tracked overlays
-filename_video_raw = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial7_crop';         % same as ^ but without overlays
-% filename_video     = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6_crop-overlay'; % video with tracked overlays
-% filename_video_raw = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6_crop';         % same as ^ but without overlays
+% filename_video     = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial7_crop-overlay2'; % video with tracked overlays
+% filename_video_raw = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial7_crop';         % same as ^ but without overlays
+filename_video     = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6_crop-overlay'; % video with tracked overlays
+filename_video_raw = 'Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6_crop';         % same as ^ but without overlays
 
 vid     = VideoReader( fullfile(directory_name, strcat(filename_video, '.mp4')) );
 vid_raw = VideoReader( fullfile(directory_name, strcat(filename_video_raw, '.mp4')) );
 
+start_time = 0.01;  % [s]
+end_time   = vid.Duration; % [s]
+% start_time = 30;  % [s]
+% end_time   = 35; % [s]
 
 %% image scale- determined by measuring width of phantom (10mm) in pixels
 hf_scale = figure;
@@ -58,11 +62,6 @@ close(hf_scale)
 
 
 %% Create Regions Between Electrodes/Modiolus and Compute Areas
-
-start_time = 0.01;  % [s]
-end_time   = vid.Duration; % [s]
-% start_time = 30;  % [s]
-% end_time   = 35; % [s]
 
 tic;
 [areas_raw, polygons] = ZsensingSegmentVideoParallel(vid, start_time, end_time, pixels_per_meter);
@@ -94,11 +93,22 @@ Z_min = min(Z_sync(:));
 Z_max = max(Z_sync(:));
 
 
-%% Compute LSTM Model Predictions for each channel
-% load("Zsense_LSTMclassify.mat") % load 'net'
-% for ii=1:4
-%     pred(ii,:) = classify(net, trial6.Z_bias{ii});
-% end
+%% Load LSTM model predictions for each channel and map to colors
+% load 'YPred' for Trial 6
+
+pred_names = {'Modiolar','Middle','Lateral'};
+pred_colors = [1 0.1 0.1; 1 .6 .1; 0 .1 1]; % colors for Modiolar, Middle, Lateral
+
+Z_idx_color = zeros(size(Z)); % each element specifies which row of bin_colors to use
+
+% find the corresponding color index for each measurement
+for i_ch=1:length(YPred)
+    for i_class = 1:3        
+        % find all samples with this prediction
+        idx = find(YPred{i_ch} == pred_names(i_class));
+        Z_idx_color(idx,i_ch) = i_class;
+    end
+end
 
 
 %% Plot Fit Curves
@@ -155,15 +165,15 @@ ransac_iter = 2;
 
 %% Setup Video Figure
 
-makeVideo = true;
-filename_new_video = strcat(filename_video_raw, '_Matlab.mp4');
+makeVideo = false;
+% filename_new_video = strcat(filename_video_raw, '_Matlab.mp4');
+filename_new_video = strcat(filename_video_raw, '_Matlab-Prediction.mp4');
 
 dpi_scale = 96/144; % matlab assumes 96dpi on Windows, but Dell M3800 is actually 144dpi
 % figWidth = 1280*dpi_scale;
 % figHeight = 720*dpi_scale;
 figWidth = 1920*dpi_scale;
 figHeight = 1080*dpi_scale;
-gap = figHeight/100;
 
 vid_raw.CurrentTime = start_time; % go to first frame
 
@@ -175,8 +185,11 @@ hImage = imshow(vid_raw.readFrame,'border','tight', 'Parent',hVid);
 hold on
 hPoly = gobjects(4,1);
 for ii=1:4
-    hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), colors(ii,:), 'FaceAlpha',0.5, 'EdgeColor',colors(ii,:));
-%     hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), cmap(Z_icolor(1,ii), :), 'FaceAlpha',0.5, 'EdgeColor',colors(ii,:));
+    % color by channel
+%     hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), colors(ii,:), 'FaceAlpha',0.5, 'EdgeColor',colors(ii,:));
+
+    % color by predicted location
+    hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), pred_colors(Z_idx_color(1,ii),:), 'FaceAlpha',0.5, 'EdgeColor',colors(ii,:), 'LineWidth',1.2);
 end
 
 % Z vs time
@@ -192,7 +205,7 @@ for ii=1:4
     hZ_marker(ii) = line(hZ, Z_times(1), Z_sync(1,ii), 'Color',colors(ii,:), 'LineStyle','none', 'Marker','o', 'MarkerSize',12);
 end
 xlabel(hZ, 'Time [s]');
-ylabel(hZ, 'Z [\Omega]')
+ylabel(hZ, 'R_a [\Omega]')
 grid on
 
 % Z vs Area
@@ -203,23 +216,41 @@ for ii=1:4
     hold(hArea{ii}, 'on')
     AreaAxisLimits = [0, 1.05*max(areas(:)), ZaxisLimits(3:4)];
     axis(hArea{ii}, AreaAxisLimits);
-    hArea_line(ii) = animatedline(hArea{ii}, areas(1,ii), Z_sync(1,ii), 'Color', 'r', 'LineStyle','none', 'Marker','x', 'MarkerSize',5);
-    hArea_marker(ii) = line(hArea{ii}, areas(1,ii), Z_sync(1,ii), 'Color', 'g', 'LineStyle','none', 'Marker','.', 'MarkerSize',30);
-    ylabel(hArea{ii}, 'Z [\Omega]');
-    xlabel(hArea{ii}, 'Area between electrodes [mm^2]');
-    xticks(0:0.5:max(areas(:)))
+%     hArea_line(ii) = animatedline(hArea{ii}, areas(1,ii), Z_sync(1,ii), 'Color',colors(ii,:), 'LineStyle','none', 'Marker','x', 'MarkerSize',5);
+%     hArea_line(ii)   = line(hArea{ii}, areas(1,ii), Z_sync(1,ii), 'Color',pred_colors(Z_idx_color(1,ii),:), 'LineStyle','none', 'Marker','x', 'MarkerSize',5);
+    hArea_line(ii)   = animatedline(hArea{ii}, areas(1,ii), Z_sync(1,ii), 'Color',[0.3010 0.7450 0.9330], 'LineStyle','none', 'Marker','.', 'MarkerSize',10);
+    hArea_marker(ii) = line(hArea{ii}, areas(1,ii), Z_sync(1,ii), 'Color',colors(ii,:), 'LineStyle','none', 'Marker','.', 'MarkerSize',30);
+    if (ii==1)||(ii==3)
+        ylabel(hArea{ii}, 'R_a [\Omega]');
+    else
+        yticklabels([]);
+    end
+    xticks(0.5:0.5:AreaAxisLimits(2))
+    if ii>2
+        xlabel(hArea{ii}, 'Area [mm^2]');
+    else
+        xticklabels([]);
+    end
+    
+    for i_class = 1:3
+%         xline(hArea{ii}, bin_edges(i_class+1));
+        fill(hArea{ii}, [bin_edges(i_class) bin_edges(i_class+1) bin_edges(i_class+1) bin_edges(i_class)],...
+                        [AreaAxisLimits(3)  AreaAxisLimits(3)    AreaAxisLimits(4)    AreaAxisLimits(4)],...
+             pred_colors(i_class,:), 'FaceAlpha',0.1, 'EdgeColor','none')
+    end
     grid on
 end
 
 % position each plot
+gap = 1.5 * figHeight/100; % percent of figure height
 margins = max([hZ.TightInset; hArea{1}.TightInset]); % pick largest
-hArea_width  = (figWidth-hVid.Position(3))/2 - margins(1)-margins(3) - gap;
-hArea_height = (figHeight - 3*margins(2) - 3*margins(4))/3-gap;
-hArea{1}.Position = [            hVid.Position(3)+  margins(1)+gap/2, hArea_height + 2*margins(2)+gap, hArea_width, hArea_height];
-hArea{2}.Position = [hArea_width+hVid.Position(3)+2*margins(1)+gap,   hArea_height + 2*margins(2)+gap, hArea_width, hArea_height];
-hArea{3}.Position = [            hVid.Position(3)+  margins(1)+gap/2,                  margins(2)+gap, hArea_width, hArea_height];
-hArea{4}.Position = [hArea_width+hVid.Position(3)+2*margins(1)+gap,                    margins(2)+gap, hArea_width, hArea_height];
-hZ.Position    = [hVid.Position(3)+margins(1)+gap/2, hArea{1}.Position(2)+hArea{1}.Position(4)+margins(2)+gap, figWidth-hVid.Position(3)-margins(1)-margins(3)-gap, hArea_height];
+hArea_width  = (figWidth-hVid.Position(3)- margins(1)- gap)/2;
+hArea_height = (figHeight - 2*margins(2) - 2*margins(4))/3 - gap;
+hArea{1}.Position = [            hVid.Position(3)+margins(1),     hArea_height + margins(2)+gap, hArea_width, hArea_height];
+hArea{2}.Position = [hArea_width+hVid.Position(3)+margins(1)+gap/2, hArea_height + margins(2)+gap, hArea_width, hArea_height];
+hArea{3}.Position = [            hVid.Position(3)+margins(1),                    margins(2)+gap/2, hArea_width, hArea_height];
+hArea{4}.Position = [hArea_width+hVid.Position(3)+margins(1)+gap/2,                margins(2)+gap/2, hArea_width, hArea_height];
+hZ.Position    = [hVid.Position(3)+margins(1), hArea{1}.Position(2)+hArea{1}.Position(4)+margins(2)+gap/2, figWidth-hVid.Position(3)-margins(1)-margins(3)-gap, hArea_height+gap];
 
 % set up VideoWriter
 if makeVideo
@@ -254,7 +285,7 @@ while (hasFrame(vid_raw) && (currentFrame < size(areas,1)))
         % polygon overlays
         hPoly(ii).XData = [polygons{currentFrame}{ii}(:,2); polygons{currentFrame}{ii}(1,2)]; % append first value to close polygon
         hPoly(ii).YData = [polygons{currentFrame}{ii}(:,1); polygons{currentFrame}{ii}(1,1)];
-%         hPoly(ii).FaceColor = cmap(Z_icolor(currentFrame,ii), :);
+        hPoly(ii).FaceColor = pred_colors(Z_idx_color(currentFrame,ii), :); % set color based on prediction
 
         % Area vs Z plots
         addpoints(hArea_line(ii), areas(currentFrame,ii), Z_sync(currentFrame,ii));
