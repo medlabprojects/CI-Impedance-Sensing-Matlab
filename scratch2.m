@@ -6,8 +6,8 @@
 
 %%
 syms r a c1 c2 c3
-eqn1 = r == c1*a^c2 + c3;
-% eqn1 = r == c1*a^c2;
+% eqn1 = r == c1*a^c2 + c3;
+eqn1 = r == c1*a^c2;
 X = solve(eqn1, a, 'Real', true, 'IgnoreAnalyticConstraints',true)
 
 %%

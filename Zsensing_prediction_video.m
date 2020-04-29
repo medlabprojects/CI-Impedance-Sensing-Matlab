@@ -2,7 +2,7 @@
 
 % load trials 4/6/7, bin info, and trained network
 load('D:\Trevor\My Documents\MED lab\Cochlear R01\Impedance Sensing\Experiments\Dissertation data\Zsense_dissertation-data_trained-net.mat');
-load('D:\Trevor\My Documents\MED lab\Cochlear R01\Impedance Sensing\Experiments\2020-01-23\Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6.mat', 'polygons');
+load('D:\Trevor\My Documents\MED lab\Cochlear R01\Impedance Sensing\Experiments\Dissertation data\Zsense_2020-01-27_phantom_Flex24_5x20_EA-1-5_trial6.mat', 'polygons');
 
 % all are 4x1 cells with each cell 1xN
 A = trial6.A;
@@ -38,7 +38,7 @@ end
 
 %% Setup Video Figure
 
-makeVideo = false;
+makeVideo = true;
 filename_new_video = strcat(filename_video, '_Matlab-Prediction.mp4');
 
 dpi_scale = 96/144; % matlab assumes 96dpi on Windows, but Dell M3800 is actually 144dpi
@@ -57,7 +57,9 @@ hold on
 hPoly = gobjects(4,1);
 for ii=1:4
     % color by predicted location
-    hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), class_colors(idx_pred_color{ii}(1,ii),:), 'FaceAlpha',0.5, 'EdgeColor',colors(ii,:), 'LineWidth',1.2);
+%     hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), class_colors(idx_pred_color{ii}(1,ii),:), 'FaceAlpha',0.3, 'EdgeColor','none');
+    hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), class_colors(idx_pred_color{ii}(1,ii),:), 'FaceAlpha',0.25, 'EdgeColor','k', 'EdgeAlpha',0.4, 'LineWidth',0.1);
+%     hPoly(ii) = fill(hVid, polygons{1}{ii}(:,2), polygons{1}{ii}(:,1), class_colors(idx_pred_color{ii}(1,ii),:), 'FaceAlpha',0.2, 'EdgeColor',colors(ii,:), 'LineWidth',1.2);
 end
 
 % Z vs time
@@ -84,7 +86,8 @@ for ii=1:4
     hold(hArea{ii}, 'on')
     AreaAxisLimits = [0, 1.05*max(max(cell2mat(A))), ZaxisLimits(3:4)];
     axis(hArea{ii}, AreaAxisLimits);
-    hArea_scatter(ii) = scatter(hArea{ii}, A{ii}, Z{ii}, '.', 'SizeData',5, 'CData', pred_color{ii});
+    text(1.7,4750, sprintf('Channel %i',ii), 'FontSize',11,'FontWeight','bold');
+    hArea_scatter(ii) = scatter(hArea{ii}, A{ii}(1), Z{ii}(1), '.', 'SizeData',45, 'CData', pred_color{ii}(1,:));
     hArea_marker(ii) = line(hArea{ii}, A{ii}(1), Z{ii}(1), 'Color',colors(ii,:), 'LineStyle','none', 'Marker','.', 'MarkerSize',30);
     if (ii==1)||(ii==3)
         ylabel(hArea{ii}, 'R_a [\Omega]');
@@ -102,7 +105,7 @@ for ii=1:4
 %         xline(hArea{ii}, bin_edges(i_class+1));
         fill(hArea{ii}, [bin_edges(i_class) bin_edges(i_class+1) bin_edges(i_class+1) bin_edges(i_class)],...
                         [AreaAxisLimits(3)  AreaAxisLimits(3)    AreaAxisLimits(4)    AreaAxisLimits(4)],...
-             pred_colors(i_class,:), 'FaceAlpha',0.1, 'EdgeColor','none')
+                        class_colors(i_class,:), 'FaceAlpha',0.1, 'EdgeColor','none')
     end
     grid on
 end
@@ -120,18 +123,18 @@ hZ.Position    = [hVid.Position(3)+margins(1), hArea{1}.Position(2)+hArea{1}.Pos
 
 % set up VideoWriter
 if makeVideo
-    videoFWriter = vision.VideoFileWriter(fullfile(directory_name, filename_new_video), 'FileFormat','MPEG4', 'FrameRate',vid.FrameRate, 'Quality',80);
+    videoFWriter = vision.VideoFileWriter(filename_new_video, 'FileFormat','MPEG4', 'FrameRate',vid.FrameRate, 'Quality',95);
 end
 
 
 %% plot/create video
 
-update_rate = 1/30; % [s]
+update_rate = 1/60; % [s]
 vid.CurrentTime = start_time; % go to first frame
 currentFrame = 0; % reset count
 
 a = tic;
-while (hasFrame(vid) && (currentFrame < length(A{1})))
+while (hasFrame(vid) && ((currentFrame) < length(A{1})))
 
     % read next frame
     currentFrame = currentFrame + 1;
@@ -152,9 +155,12 @@ while (hasFrame(vid) && (currentFrame < length(A{1})))
         % polygon overlays
         hPoly(ii).XData = [polygons{currentFrame}{ii}(:,2); polygons{currentFrame}{ii}(1,2)]; % append first value to close polygon
         hPoly(ii).YData = [polygons{currentFrame}{ii}(:,1); polygons{currentFrame}{ii}(1,1)];
-        hPoly(ii).FaceColor = pred_colors(idx_pred_color(currentFrame,ii), :); % set color based on prediction
+        hPoly(ii).FaceColor = pred_color{ii}(currentFrame,:); % set color based on prediction
 
         % Area vs Z plots
+        hArea_scatter(ii).XData = A{ii}(1:currentFrame);
+        hArea_scatter(ii).YData = Z{ii}(1:currentFrame);
+        hArea_scatter(ii).CData = pred_color{ii}(1:currentFrame,:);
         hArea_marker(ii).XData = A{ii}(currentFrame);
         hArea_marker(ii).YData = Z{ii}(currentFrame);
     end
@@ -177,4 +183,3 @@ end
 if makeVideo
     release(videoFWriter);
 end
-toc
