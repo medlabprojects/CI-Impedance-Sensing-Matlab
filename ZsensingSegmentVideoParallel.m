@@ -1,8 +1,8 @@
 function [areas, polygons] = ZsensingSegmentVideoParallel(vid, start_time, end_time, pixels_per_meter)
 %% 
-%   Segment processed (via After Effects) video
-%   Create Regions Between Electrodes/Modiolus
-%   Compute Areas
+%   - Segment processed (via After Effects) video
+%   - Create Regions Between Electrodes/Modiolus
+%   - Compute Areas
 %
 %   Trevor Bruns
 %   February 2020
